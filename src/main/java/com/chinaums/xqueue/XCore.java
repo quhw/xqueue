@@ -49,8 +49,6 @@ class XCore {
 					XQueueMessage msg = queue.take();
 					dispatchMessage(msg);
 				} catch (InterruptedException e) {
-				} catch (Exception e) {
-					log.error("发送消息错误", e);
 				}
 			}
 		}
@@ -127,10 +125,18 @@ class XCore {
 		return queue.offer(msg);
 	}
 
-	private void dispatchMessage(XQueueMessage msg) throws Exception {
-		for (Client client : clientMap.values()) {
-			if (client.topic.equals(msg.getTopic())) {
-				client.session.write(msg);
+	private void dispatchMessage(XQueueMessage msg) {
+		String topic = msg.getTopic();
+		String p = topic + SEP;
+		for (String key : topicMap.keySet()) {
+			try {
+				if (key.startsWith(p)) {
+					Client c = topicMap.get(key);
+					if (c != null)
+						c.session.write(msg);
+				}
+			} catch (Exception e) {
+				log.warn("发送消息错误: " + e.getMessage());
 			}
 		}
 	}
