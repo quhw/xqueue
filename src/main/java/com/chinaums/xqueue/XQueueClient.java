@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * 客户端
+ * 客户端。
  * 
  * @author 焕文
  *
@@ -52,10 +52,22 @@ public class XQueueClient {
 
 	}
 
+	/**
+	 * 构造函数
+	 * 
+	 * @param hosts
+	 *            服务器地址列表，host1:port1,host2:port2,...
+	 */
 	public XQueueClient(String hosts) {
 		setHosts(hosts);
 	}
 
+	/**
+	 * 服务器地址。
+	 * 
+	 * @param hosts
+	 *            服务器地址列表，host1:port1,host2:port2,...
+	 */
 	public void setHosts(String hosts) {
 		String[] hostArr = hosts.split(",");
 		hostAddr = new SocketAddress[hostArr.length];
@@ -70,10 +82,20 @@ public class XQueueClient {
 		return queueSize;
 	}
 
+	/**
+	 * 接收队列长度，默认2048，超过长度的消息会被丢弃。
+	 * 
+	 * @param queueSize
+	 */
 	public void setQueueSize(int queueSize) {
 		this.queueSize = queueSize;
 	}
 
+	/**
+	 * 工作线程数，默认1，用于并发的回调XQueueListener。
+	 * 
+	 * @return
+	 */
 	public int getWorkerPoolSize() {
 		return workerPoolSize;
 	}
@@ -86,6 +108,11 @@ public class XQueueClient {
 		return subscribeTopic;
 	}
 
+	/**
+	 * 订阅的TOPIC，不能有*号。
+	 * 
+	 * @param subscribeTopic
+	 */
 	public void setSubscribeTopic(String subscribeTopic) {
 		this.subscribeTopic = subscribeTopic;
 	}
@@ -94,6 +121,11 @@ public class XQueueClient {
 		return systemId;
 	}
 
+	/**
+	 * 客户端系统标识，认证按照systemId进行认证。
+	 * 
+	 * @param systemId
+	 */
 	public void setSystemId(String systemId) {
 		this.systemId = systemId;
 	}
@@ -102,6 +134,11 @@ public class XQueueClient {
 		return clientId;
 	}
 
+	/**
+	 * 客户端ID，如果有多个相同的systemId+clientId订阅同一topic， 则只有一个客户端能收到消息，保证集群内消息不会被重复处理。
+	 * 
+	 * @param clientId
+	 */
 	public void setClientId(String clientId) {
 		this.clientId = clientId;
 	}
@@ -110,6 +147,11 @@ public class XQueueClient {
 		return privateKey;
 	}
 
+	/**
+	 * 认证私钥，PKCS8格式，hexstring。
+	 * 
+	 * @param privateKey
+	 */
 	public void setPrivateKey(String privateKey) {
 		this.privateKey = privateKey;
 	}
@@ -118,10 +160,18 @@ public class XQueueClient {
 		return listener;
 	}
 
+	/**
+	 * 消息处理接口。
+	 * 
+	 * @param listener
+	 */
 	public void setListener(XQueueListener listener) {
 		this.listener = listener;
 	}
 
+	/**
+	 * 开始接收。
+	 */
 	public void start() {
 		if (!stop)
 			return;
@@ -141,6 +191,9 @@ public class XQueueClient {
 		receiver.start();
 	}
 
+	/**
+	 * 停止接收。
+	 */
 	public void stop() {
 		if (stop)
 			return;
@@ -212,7 +265,11 @@ public class XQueueClient {
 		byte[] content;
 		StringBuffer buf = new StringBuffer();
 
-		if (msg instanceof XQueueChallengeResponse) {
+		if (msg instanceof XQueueMessageAck) {
+			type = XMessage.ACK;
+			buf.append("\n");
+			content = new byte[0];
+		} else if (msg instanceof XQueueChallengeResponse) {
 			XQueueChallengeResponse m = (XQueueChallengeResponse) msg;
 			type = XMessage.RESP;
 			buf.append("systemId:");
@@ -247,15 +304,20 @@ public class XQueueClient {
 	}
 
 	private void receive() throws Exception {
+		XQueueMessageAck ackMsg = new XQueueMessageAck();
+
 		InputStream is = sock.getInputStream();
+		OutputStream os = sock.getOutputStream();
 		while (!stop) {
 			XMessage msg = readMessage(is);
 			if (!(msg instanceof XQueueMessage)) {
 				throw new Exception("Not receive a message");
 			}
-			XQueueMessage m = (XQueueMessage) msg;
 
+			XQueueMessage m = (XQueueMessage) msg;
 			queue.offer(m);
+
+			writeMessage(os, ackMsg);
 		}
 	}
 

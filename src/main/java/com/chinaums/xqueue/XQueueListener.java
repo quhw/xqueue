@@ -1,9 +1,15 @@
 package com.chinaums.xqueue;
 
+/**
+ * 消息回调接口
+ * @author 焕文
+ *
+ */
 public interface XQueueListener {
-	public void onMessage(XQueueMessage msg) throws Exception;
 	/**
-	 * 构造服务
-	 * @param hosts 格式：host1:port1,host2:port2,host3,port3
+	 * 收到消息后被调用。
+	 * @param msg
+	 * @throws Exception
 	 */
+	public void onMessage(XQueueMessage msg) throws Exception;
 }

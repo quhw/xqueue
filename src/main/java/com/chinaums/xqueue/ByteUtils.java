@@ -2,7 +2,7 @@ package com.chinaums.xqueue;
 
 import java.io.UnsupportedEncodingException;
 
-public class ByteUtils {
+class ByteUtils {
 
 	static final String ENCODING_UTF_8 = "UTF-8";
 	static final String ENCODING_GBK = "GBK";

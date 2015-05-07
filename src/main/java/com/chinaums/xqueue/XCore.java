@@ -30,13 +30,16 @@ class XCore {
 
 	private class Client {
 		public String topic;
+		public String systemId;
 		public String clientId;
 		public IoSession session;
 
-		public Client(String topic, String clientId, IoSession session) {
+		public Client(String topic, String clientId, String systemId,
+				IoSession session) {
 			super();
 			this.topic = topic;
 			this.clientId = clientId;
+			this.systemId = systemId;
 			this.session = session;
 		}
 
@@ -65,11 +68,11 @@ class XCore {
 	}
 
 	public void start() {
-		if(!stop)
+		if (!stop)
 			return;
-		
+
 		stop = false;
-		
+
 		for (int i = 0; i < this.dispatcherThreads; i++) {
 			Dispatcher d = new Dispatcher();
 			dispatchers.add(d);
@@ -78,9 +81,9 @@ class XCore {
 	}
 
 	public void stop() {
-		if(stop)
+		if (stop)
 			return;
-		
+
 		stop = true;
 		for (Dispatcher d : dispatchers) {
 			d.interrupt();
@@ -102,10 +105,11 @@ class XCore {
 
 	public void addSession(IoSession session, XQueueChallengeResponse m) {
 		Client client = new Client(m.getSubscribeTopic(), m.getClientId(),
-				session);
+				m.getSystemId(), session);
 		clientMap.put(session, client);
 
-		String key = client.topic + SEP + client.clientId;
+		String key = client.topic + SEP + client.clientId + SEP
+				+ client.systemId;
 		if (!topicMap.containsKey(key)) {
 			topicMap.put(key, client);
 		}
@@ -116,13 +120,15 @@ class XCore {
 		if (client == null)
 			return;
 
-		String key = client.topic + SEP + client.clientId;
+		String key = client.topic + SEP + client.clientId + SEP
+				+ client.systemId;
 		topicMap.remove(key);
 
-		// find other client with same topic and clientid
+		// find other client with same topic and clientid+systemId
 		for (Client c : clientMap.values()) {
 			if (c.topic.equals(client.topic)
-					&& c.clientId.equals(client.clientId)) {
+					&& c.clientId.equals(client.clientId)
+					&& c.systemId.equals(client.systemId)) {
 				topicMap.put(key, c);
 				break;
 			}

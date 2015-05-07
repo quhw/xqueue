@@ -5,7 +5,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-public class XQueueMessage extends XMessage implements Serializable{
+/**
+ * 消息。
+ * 
+ * @author 焕文
+ *
+ */
+public class XQueueMessage extends XMessage implements Serializable {
 	private static final long serialVersionUID = -1265844461078088526L;
 
 	private String topic = "default";
@@ -57,7 +63,7 @@ public class XQueueMessage extends XMessage implements Serializable{
 		properties.put(key, value);
 	}
 
-	public String getProperty(String key){
+	public String getProperty(String key) {
 		return properties.get(key);
 	}
 }

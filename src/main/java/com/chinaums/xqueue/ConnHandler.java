@@ -33,6 +33,7 @@ class ConnHandler implements IoHandler {
 
 	@Override
 	public void sessionClosed(IoSession session) throws Exception {
+		log.info("连接已关闭：{}", session.getRemoteAddress());
 		core.removeSession(session);
 	}
 
@@ -51,7 +52,8 @@ class ConnHandler implements IoHandler {
 	@Override
 	public void messageReceived(IoSession session, Object message)
 			throws Exception {
-		if (message instanceof XQueueChallengeResponse) {
+		if (message instanceof XQueueMessageAck) {
+		} else if (message instanceof XQueueChallengeResponse) {
 			log.info("收到认证应答：" + session.getRemoteAddress());
 			XQueueChallengeResponse m = (XQueueChallengeResponse) message;
 			String challenge = (String) session.getAttribute("CHALLENGE");

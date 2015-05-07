@@ -1,5 +1,8 @@
 package com.chinaums.xqueue;
 
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+
 import org.apache.mina.core.buffer.IoBuffer;
 import org.apache.mina.core.session.IoSession;
 import org.apache.mina.filter.codec.CumulativeProtocolDecoder;
@@ -13,7 +16,7 @@ import org.apache.mina.filter.codec.ProtocolDecoderOutput;
 class XMessageDecoder extends CumulativeProtocolDecoder {
 
 	/**
-	 * 处理XQueueAuthResponse消息
+	 * 处理XQueueAuthResponse, XQueueMessageAck消息
 	 */
 	@Override
 	protected boolean doDecode(IoSession session, IoBuffer in,
@@ -35,49 +38,51 @@ class XMessageDecoder extends CumulativeProtocolDecoder {
 			return false;
 		} else {
 			session.removeAttribute("MSG_LEN");
+			
+			byte[] data = new byte[length];
+			in.get(data);
+			
+			ByteBuffer buf = ByteBuffer.wrap(data);
 
-			byte type = in.get();
-			if (type != XMessage.RESP) {
+			byte type = buf.get();
+			switch (type) {
+			case XMessage.ACK:
+				XQueueMessageAck ack = parseAck(buf);
+				out.write(ack);
+				return true;
+			case XMessage.RESP:
+				XQueueChallengeResponse resp = parseResponse(buf);
+				out.write(resp);
+				return true;
+			default:
 				throw new Exception("错误的消息类型");
-			}
-
-			XQueueChallengeResponse msg = new XQueueChallengeResponse();
-
-			String line;
-			int contentLength = 0;
-
-			while (true) {
-				line = nextLine(in);
-				if (line == null)
-					throw new Exception("错误的消息格式");
-
-				if (line.length() == 0) {
-					byte[] content = new byte[contentLength];
-					in.get(content);
-					msg.setSignature(content);
-					out.write(msg);
-					return true;
-				}
-
-				int pos = line.indexOf(':');
-				if (pos > 0 && pos < line.length() - 1) {
-					String key = line.substring(0, pos).trim();
-					String value = line.substring(pos + 1).trim();
-					if ("systemId".equalsIgnoreCase(key)) {
-						msg.setSystemId(value);
-					} else if ("clientId".equalsIgnoreCase(key)) {
-						msg.setClientId(value);
-					} else if ("subscribeTopic".equalsIgnoreCase(key)) {
-						msg.setSubscribeTopic(value);
-					} else if ("contentLength".equalsIgnoreCase(key)) {
-						contentLength = Integer.parseInt(value);
-					}
-				}
 			}
 		}
 	}
 
-	private String nextLine(IoBuffer in) throws Exception {
+	private XQueueMessageAck parseAck(ByteBuffer in) throws Exception {
+		parseHeader(in);
+
+		XQueueMessageAck msg = new XQueueMessageAck();
+		return msg;
+	}
+
+	private XQueueChallengeResponse parseResponse(ByteBuffer in) throws Exception {
+		HashMap<String, String> header = parseHeader(in);
+
+		XQueueChallengeResponse msg = new XQueueChallengeResponse();
+		msg.setSystemId(header.get("systemId"));
+		msg.setClientId(header.get("clientId"));
+		msg.setSubscribeTopic(header.get("subscribeTopic"));
+		int contentLength = Integer.parseInt(header.get("contentLength"));
+
+		byte[] content = new byte[contentLength];
+		in.get(content);
+		msg.setSignature(content);
+		return msg;
+	}
+
+	private String nextLine(ByteBuffer in) throws Exception {
 		int start = in.position();
 		int current = start;
 		int limit = in.limit();
@@ -101,6 +106,28 @@ class XMessageDecoder extends CumulativeProtocolDecoder {
 		}
 		in.position(start);
 		return null;
+	}
+
+	private HashMap<String, String> parseHeader(ByteBuffer in) throws Exception {
+		String line;
+		HashMap<String, String> map = new HashMap<String, String>();
+
+		while (true) {
+			line = nextLine(in);
+			if (line == null)
+				throw new Exception("错误的消息格式");
+
+			if (line.length() == 0) {
+				return map;
+			}
+
+			int pos = line.indexOf(':');
+			if (pos > 0 && pos < line.length() - 1) {
+				String key = line.substring(0, pos).trim();
+				String value = line.substring(pos + 1).trim();
+				map.put(key, value);
+			}
+		}
 	}
 
 }

@@ -48,6 +48,10 @@ public class XQueue {
 		return port;
 	}
 
+	/**
+	 * 监听端口
+	 * @param port
+	 */
 	public void setPort(int port) {
 		this.port = port;
 	}
@@ -56,6 +60,10 @@ public class XQueue {
 		return authKeys;
 	}
 
+	/**
+	 * 设置认证公钥，systemId:公钥
+	 * @param authKeys
+	 */
 	public void setAuthKeys(Map<String, String> authKeys) {
 		this.authKeys = authKeys;
 	}
@@ -64,6 +72,10 @@ public class XQueue {
 		return queueSize;
 	}
 
+	/**
+	 * 发送队列长度，默认2048。队列满了后，新消息会被丢弃。
+	 * @param queueSize
+	 */
 	public void setQueueSize(int queueSize) {
 		this.queueSize = queueSize;
 	}
@@ -72,10 +84,18 @@ public class XQueue {
 		return dispatcherThreads;
 	}
 
+	/**
+	 * 消息分发线程数，默认16。
+	 * @param dispatcherThreads
+	 */
 	public void setDispatcherThreads(int dispatcherThreads) {
 		this.dispatcherThreads = dispatcherThreads;
 	}
 
+	/**
+	 * 开始服务。
+	 * @throws Exception
+	 */
 	public void start() throws Exception {
 		if(!stop)
 			return;
@@ -103,6 +123,9 @@ public class XQueue {
 		log.info("XQueue启动完毕，监听端口：" + port);
 	}
 
+	/**
+	 * 停止服务。
+	 */
 	public void stop() {
 		stop = true;
 		
@@ -111,10 +134,23 @@ public class XQueue {
 		acceptor.dispose();
 	}
 
+	/**
+	 * 发送消息到指定TOPIC。
+	 * @param topic
+	 * @param content
+	 * @return 是否发送成功，这里成功指的是进入发送队列，不保证到达。
+	 * @throws Exception
+	 */
 	public boolean send(String topic, byte[] content) throws Exception {
 		return send(new XQueueMessage(topic, content));
 	}
 
+	/**
+	 * 发送消息。
+	 * @param msg
+	 * @return
+	 * @throws Exception
+	 */
 	public boolean send(XQueueMessage msg) throws Exception {
 		return core.send(msg);
 	}
