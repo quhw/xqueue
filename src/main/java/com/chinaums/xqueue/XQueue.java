@@ -27,6 +27,8 @@ public class XQueue {
 	private SocketAcceptor acceptor;
 	
 	private XCore core;
+	
+	private volatile boolean stop = true;
 
 	public XQueue() {
 
@@ -75,6 +77,11 @@ public class XQueue {
 	}
 
 	public void start() throws Exception {
+		if(!stop)
+			return;
+		
+		stop = false;
+		
 		log.info("开始启动XQueue");
 		core = new XCore(queueSize, dispatcherThreads, authKeys);
 		core.start();
@@ -97,6 +104,8 @@ public class XQueue {
 	}
 
 	public void stop() {
+		stop = true;
+		
 		core.stop();
 		acceptor.unbind();
 		acceptor.dispose();

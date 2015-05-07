@@ -9,7 +9,10 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,10 +31,16 @@ public class XQueueClient {
 	private String clientId;
 	private String privateKey;
 	private String systemId;
+	private int queueSize = 2048;
+	private int workerPoolSize = 1;
+
+	private ArrayBlockingQueue<XQueueMessage> queue;
+
+	private List<WorkerThread> workerPool;
 
 	private XQueueListener listener;
 
-	private volatile boolean stop = false;
+	private volatile boolean stop = true;
 
 	private Receiver receiver;
 
@@ -55,6 +64,22 @@ public class XQueueClient {
 			hostAddr[i] = new InetSocketAddress(strs[0],
 					Integer.parseInt(strs[1]));
 		}
+	}
+
+	public int getQueueSize() {
+		return queueSize;
+	}
+
+	public void setQueueSize(int queueSize) {
+		this.queueSize = queueSize;
+	}
+
+	public int getWorkerPoolSize() {
+		return workerPoolSize;
+	}
+
+	public void setWorkerPoolSize(int workerPoolSize) {
+		this.workerPoolSize = workerPoolSize;
 	}
 
 	public String getSubscribeTopic() {
@@ -98,14 +123,34 @@ public class XQueueClient {
 	}
 
 	public void start() {
+		if (!stop)
+			return;
+
+		stop = false;
+
+		queue = new ArrayBlockingQueue<XQueueMessage>(queueSize);
+
+		workerPool = new ArrayList<XQueueClient.WorkerThread>(workerPoolSize);
+		for (int i = 0; i < workerPoolSize; i++) {
+			WorkerThread wt = new WorkerThread();
+			workerPool.add(wt);
+			wt.start();
+		}
+
 		receiver = new Receiver();
 		receiver.start();
 	}
 
 	public void stop() {
+		if (stop)
+			return;
+
 		stop = true;
 		receiver.interrupt();
 		disconnect();
+		for (WorkerThread wt : workerPool) {
+			wt.interrupt();
+		}
 	}
 
 	private class Receiver extends Thread {
@@ -210,11 +255,7 @@ public class XQueueClient {
 			}
 			XQueueMessage m = (XQueueMessage) msg;
 
-			try {
-				listener.onMessage(m);
-			} catch (Throwable t) {
-				log.error("Uncaught exception: ", t);
-			}
+			queue.offer(m);
 		}
 	}
 
@@ -361,4 +402,20 @@ public class XQueueClient {
 		}
 	}
 
+	private class WorkerThread extends Thread {
+		public void run() {
+			while (!stop) {
+				XQueueMessage msg;
+				try {
+					msg = queue.take();
+					try {
+						listener.onMessage(msg);
+					} catch (Throwable t) {
+						log.error("Uncaught exception: ", t);
+					}
+				} catch (InterruptedException e) {
+				}
+			}
+		}
+	}
 }

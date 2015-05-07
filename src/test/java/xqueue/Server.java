@@ -19,7 +19,7 @@ public class Server {
 		
 		while(true){
 			xq.send("test", "hello world".getBytes());
-			Thread.sleep(500);
+//			Thread.sleep(500);
 		}
 	}
 

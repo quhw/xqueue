@@ -25,7 +25,7 @@ class XCore {
 	// 由于连接数不会很多，就不用太复杂的数据结构了，每次遍历所有连接。
 	private Map<String, Client> topicMap = new ConcurrentHashMap<String, Client>();
 
-	private volatile boolean stop = false;
+	private volatile boolean stop = true;
 	private List<Dispatcher> dispatchers;
 
 	private class Client {
@@ -65,6 +65,11 @@ class XCore {
 	}
 
 	public void start() {
+		if(!stop)
+			return;
+		
+		stop = false;
+		
 		for (int i = 0; i < this.dispatcherThreads; i++) {
 			Dispatcher d = new Dispatcher();
 			dispatchers.add(d);
@@ -73,6 +78,9 @@ class XCore {
 	}
 
 	public void stop() {
+		if(stop)
+			return;
+		
 		stop = true;
 		for (Dispatcher d : dispatchers) {
 			d.interrupt();
