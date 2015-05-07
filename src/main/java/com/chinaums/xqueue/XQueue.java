@@ -3,8 +3,12 @@ package com.chinaums.xqueue;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
+import org.apache.mina.core.session.IdleStatus;
 import org.apache.mina.filter.codec.ProtocolCodecFilter;
+import org.apache.mina.filter.executor.ExecutorFilter;
+import org.apache.mina.filter.executor.OrderedThreadPoolExecutor;
 import org.apache.mina.transport.socket.SocketAcceptor;
 import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.slf4j.Logger;
@@ -25,9 +29,10 @@ public class XQueue {
 	private Map<String, String> authKeys = new HashMap<String, String>();
 
 	private SocketAcceptor acceptor;
+	private ExecutorService executor;
 	
 	private XCore core;
-	
+
 	private volatile boolean stop = true;
 
 	public XQueue() {
@@ -50,6 +55,7 @@ public class XQueue {
 
 	/**
 	 * 监听端口
+	 * 
 	 * @param port
 	 */
 	public void setPort(int port) {
@@ -62,6 +68,7 @@ public class XQueue {
 
 	/**
 	 * 设置认证公钥，systemId:公钥
+	 * 
 	 * @param authKeys
 	 */
 	public void setAuthKeys(Map<String, String> authKeys) {
@@ -74,6 +81,7 @@ public class XQueue {
 
 	/**
 	 * 发送队列长度，默认2048。队列满了后，新消息会被丢弃。
+	 * 
 	 * @param queueSize
 	 */
 	public void setQueueSize(int queueSize) {
@@ -86,6 +94,7 @@ public class XQueue {
 
 	/**
 	 * 消息分发线程数，默认16。
+	 * 
 	 * @param dispatcherThreads
 	 */
 	public void setDispatcherThreads(int dispatcherThreads) {
@@ -94,14 +103,15 @@ public class XQueue {
 
 	/**
 	 * 开始服务。
+	 * 
 	 * @throws Exception
 	 */
 	public void start() throws Exception {
-		if(!stop)
+		if (!stop)
 			return;
-		
+
 		stop = false;
-		
+
 		log.info("开始启动XQueue");
 		core = new XCore(queueSize, dispatcherThreads, authKeys);
 		core.start();
@@ -115,9 +125,17 @@ public class XQueue {
 				new ProtocolCodecFilter(new XMessageEncoder(),
 						new XMessageDecoder()));
 
-		// 这里不用executor thread来接受客户端连接，没有必要。
+		// 用ExecutorFilter来实现线程
+		executor = new OrderedThreadPoolExecutor(Runtime.getRuntime()
+				.availableProcessors() + 1);
+		// 由于codecFilter内部有锁，无法并发，所以要把executor放到codec后面
+		acceptor.getFilterChain().addLast("ThreadPool",
+				new ExecutorFilter(executor));
 
 		acceptor.setHandler(new ConnHandler(core));
+
+		// 心跳，30秒
+		acceptor.getSessionConfig().setIdleTime(IdleStatus.WRITER_IDLE, 30);
 
 		acceptor.bind(new InetSocketAddress(port));
 		log.info("XQueue启动完毕，监听端口：" + port);
@@ -128,14 +146,16 @@ public class XQueue {
 	 */
 	public void stop() {
 		stop = true;
-		
+
 		core.stop();
 		acceptor.unbind();
 		acceptor.dispose();
+		executor.shutdownNow();
 	}
 
 	/**
 	 * 发送消息到指定TOPIC。
+	 * 
 	 * @param topic
 	 * @param content
 	 * @return 是否发送成功，这里成功指的是进入发送队列，不保证到达。
@@ -147,6 +167,7 @@ public class XQueue {
 
 	/**
 	 * 发送消息。
+	 * 
 	 * @param msg
 	 * @return
 	 * @throws Exception

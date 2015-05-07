@@ -146,8 +146,9 @@ class XCore {
 			try {
 				if (key.startsWith(p)) {
 					Client c = topicMap.get(key);
-					if (c != null)
+					if (c != null) {
 						c.session.write(msg);
+					}
 				}
 			} catch (Exception e) {
 				log.warn("发送消息错误: " + e.getMessage());

@@ -40,13 +40,15 @@ class ConnHandler implements IoHandler {
 	@Override
 	public void sessionIdle(IoSession session, IdleStatus status)
 			throws Exception {
+		log.info("空闲：" + session.getRemoteAddress());
+		session.close(true);
 	}
 
 	@Override
 	public void exceptionCaught(IoSession session, Throwable cause)
 			throws Exception {
-		log.error("Uncaught exception", cause);
-		session.close(false);
+		log.error("Uncaught exception: " + session.getRemoteAddress(), cause);
+		session.close(true);
 	}
 
 	@Override
@@ -58,17 +60,17 @@ class ConnHandler implements IoHandler {
 			XQueueChallengeResponse m = (XQueueChallengeResponse) message;
 			String challenge = (String) session.getAttribute("CHALLENGE");
 			if (core.authenticate(challenge, m)) {
-				log.info("认证通过");
 				session.write(new XQueueChallengeFinish("OK"));
 				core.addSession(session, m);
+				log.info("认证通过：{}", session.getRemoteAddress());
 			} else {
-				log.warn("认证失败");
 				session.write(new XQueueChallengeFinish("Authentication fail."));
-				session.close(false);
+				session.close(true);
+				log.warn("认证失败：{}", session.getRemoteAddress());
 			}
 		} else {
 			log.warn("收到非法请求报文：" + session.getRemoteAddress());
-			session.close(false);
+			session.close(true);
 		}
 	}
 

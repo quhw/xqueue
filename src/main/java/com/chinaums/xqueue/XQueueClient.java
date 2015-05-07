@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -309,15 +310,19 @@ public class XQueueClient {
 		InputStream is = sock.getInputStream();
 		OutputStream os = sock.getOutputStream();
 		while (!stop) {
-			XMessage msg = readMessage(is);
-			if (!(msg instanceof XQueueMessage)) {
-				throw new Exception("Not receive a message");
+			try {
+				XMessage msg = readMessage(is);
+				if (!(msg instanceof XQueueMessage)) {
+					throw new Exception("Not receive a message");
+				}
+
+				XQueueMessage m = (XQueueMessage) msg;
+				queue.offer(m);
+
+				writeMessage(os, ackMsg);
+			} catch (SocketTimeoutException e) {
+				writeMessage(os, ackMsg);
 			}
-
-			XQueueMessage m = (XQueueMessage) msg;
-			queue.offer(m);
-
-			writeMessage(os, ackMsg);
 		}
 	}
 
@@ -328,6 +333,7 @@ public class XQueueClient {
 			try {
 				sock = new Socket();
 				sock.connect(addr, 30000);
+//				sock.setSoTimeout(10000); // 10秒读取超时，发送心跳。
 				log.info("成功连接服务端");
 				return;
 			} catch (Exception e) {
