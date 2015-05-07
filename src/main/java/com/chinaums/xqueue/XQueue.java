@@ -88,7 +88,7 @@ public class XQueue {
 
 		acceptor = new NioSocketAcceptor(Runtime.getRuntime()
 				.availableProcessors() + 1);
-		acceptor.setReuseAddress(true);
+		acceptor.setReuseAddress(false);
 
 		acceptor.getFilterChain().addLast(
 				"protocol",
