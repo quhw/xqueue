@@ -15,6 +15,21 @@ XQueue是一个嵌入式的轻量级点到点消息框架，主要用来在系�
 
 ![总体架构](http://144.131.254.48:5446/quhw/xqueue/uploads/b486f440d680871ce9677dadcb6b6608/总体架构.png)
 
+### 依赖包
+
+```maven
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>1.7.5</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.mina</groupId>
+			<artifactId>mina-core</artifactId>
+			<version>2.0.9</version>
+		</dependency>
+```
+
 ## 示例
 
 ### 服务端
