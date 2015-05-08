@@ -1,16 +1,17 @@
 package com.chinaums.xqueue;
 
-import java.net.InetSocketAddress;
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 
-import org.apache.mina.core.session.IdleStatus;
-import org.apache.mina.filter.codec.ProtocolCodecFilter;
-import org.apache.mina.filter.executor.ExecutorFilter;
-import org.apache.mina.filter.executor.OrderedThreadPoolExecutor;
-import org.apache.mina.transport.socket.SocketAcceptor;
-import org.apache.mina.transport.socket.nio.NioSocketAcceptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,12 +29,12 @@ public class XQueue {
 	private int dispatcherThreads = 16;
 	private Map<String, String> authKeys = new HashMap<String, String>();
 
-	private SocketAcceptor acceptor;
-	private ExecutorService executor;
-	
 	private XCore core;
 
 	private volatile boolean stop = true;
+
+	private EventLoopGroup bossGroup;
+	private EventLoopGroup workerGroup;
 
 	public XQueue() {
 
@@ -116,28 +117,22 @@ public class XQueue {
 		core = new XCore(queueSize, dispatcherThreads, authKeys);
 		core.start();
 
-		acceptor = new NioSocketAcceptor(Runtime.getRuntime()
-				.availableProcessors() + 1);
-		acceptor.setReuseAddress(false);
+		EventLoopGroup bossGroup = new NioEventLoopGroup();
+		EventLoopGroup workerGroup = new NioEventLoopGroup();
+		ServerBootstrap b = new ServerBootstrap();
+		b.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
+				.childHandler(new ChannelInitializer<SocketChannel>() { 
+							@Override
+							public void initChannel(SocketChannel ch)
+									throws Exception {
+								ch.pipeline().addLast();
+							}
+						}).option(ChannelOption.SO_BACKLOG, 128) 
+				.childOption(ChannelOption.SO_KEEPALIVE, true); 
 
-		acceptor.getFilterChain().addLast(
-				"protocol",
-				new ProtocolCodecFilter(new XMessageEncoder(),
-						new XMessageDecoder()));
+		// Bind and start to accept incoming connections.
+		b.bind(port).sync();
 
-		// 用ExecutorFilter来实现线程
-		executor = new OrderedThreadPoolExecutor(Runtime.getRuntime()
-				.availableProcessors() + 1);
-		// 由于codecFilter内部有锁，无法并发，所以要把executor放到codec后面
-		acceptor.getFilterChain().addLast("ThreadPool",
-				new ExecutorFilter(executor));
-
-		acceptor.setHandler(new ConnHandler(core));
-
-		// 心跳，30秒
-		acceptor.getSessionConfig().setIdleTime(IdleStatus.WRITER_IDLE, 30);
-
-		acceptor.bind(new InetSocketAddress(port));
 		log.info("XQueue启动完毕，监听端口：" + port);
 	}
 
@@ -148,9 +143,9 @@ public class XQueue {
 		stop = true;
 
 		core.stop();
-		acceptor.unbind();
-		acceptor.dispose();
-		executor.shutdownNow();
+
+		workerGroup.shutdownGracefully();
+		bossGroup.shutdownGracefully();
 	}
 
 	/**
