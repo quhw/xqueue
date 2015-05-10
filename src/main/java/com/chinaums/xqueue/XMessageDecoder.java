@@ -1,62 +1,52 @@
 package com.chinaums.xqueue;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.ByteToMessageDecoder;
+
 import java.nio.ByteBuffer;
 import java.util.HashMap;
-
-import org.apache.mina.core.buffer.IoBuffer;
-import org.apache.mina.core.session.IoSession;
-import org.apache.mina.filter.codec.CumulativeProtocolDecoder;
-import org.apache.mina.filter.codec.ProtocolDecoderOutput;
+import java.util.List;
 
 /**
- * 
- * @author 焕文
- * 
+ * 处理XQueueAuthResponse, XQueueMessageAck消息
  */
-class XMessageDecoder extends CumulativeProtocolDecoder {
-
-	/**
-	 * 处理XQueueAuthResponse, XQueueMessageAck消息
-	 */
+class XMessageDecoder extends ByteToMessageDecoder {
 	@Override
-	protected boolean doDecode(IoSession session, IoBuffer in,
-			ProtocolDecoderOutput out) throws Exception {
-		Integer length = (Integer) session.getAttribute("MSG_LEN");
-
-		if (length == null) {
-			if (in.remaining() < 4) {
-				return false;
-			} else {
-				length = in.getInt();
-				if (length > 10 * 1024) {
-					throw new Exception("报文过长");
-				}
-			}
+	protected void decode(ChannelHandlerContext ctx, ByteBuf in,
+			List<Object> out) throws Exception {
+		if (in.readableBytes() < 4) {
+			return;
 		}
-		if (in.remaining() < length) {
-			session.setAttribute("MSG_LEN", length);
-			return false;
-		} else {
-			session.removeAttribute("MSG_LEN");
-			
-			byte[] data = new byte[length];
-			in.get(data);
-			
-			ByteBuffer buf = ByteBuffer.wrap(data);
 
-			byte type = buf.get();
-			switch (type) {
-			case XMessage.ACK:
-				XQueueMessageAck ack = parseAck(buf);
-				out.write(ack);
-				return true;
-			case XMessage.RESP:
-				XQueueChallengeResponse resp = parseResponse(buf);
-				out.write(resp);
-				return true;
-			default:
-				throw new Exception("错误的消息类型");
-			}
+		in.markReaderIndex();
+		int length = in.readInt();
+		if (in.readableBytes() < length) {
+			in.resetReaderIndex();
+			return;
+		}
+
+		if (length > 10 * 1024) {
+			throw new Exception("报文过长");
+		}
+
+		byte[] data = new byte[length];
+		in.readBytes(data);
+
+		ByteBuffer buf = ByteBuffer.wrap(data);
+
+		byte type = buf.get();
+		switch (type) {
+		case XMessage.ACK:
+			XQueueMessageAck ack = parseAck(buf);
+			out.add(ack);
+			return;
+		case XMessage.RESP:
+			XQueueChallengeResponse resp = parseResponse(buf);
+			out.add(resp);
+			return;
+		default:
+			throw new Exception("错误的消息类型");
 		}
 	}
 
@@ -67,7 +57,8 @@ class XMessageDecoder extends CumulativeProtocolDecoder {
 		return msg;
 	}
 
-	private XQueueChallengeResponse parseResponse(ByteBuffer in) throws Exception {
+	private XQueueChallengeResponse parseResponse(ByteBuffer in)
+			throws Exception {
 		HashMap<String, String> header = parseHeader(in);
 
 		XQueueChallengeResponse msg = new XQueueChallengeResponse();

@@ -1,12 +1,13 @@
 package com.chinaums.xqueue;
 
+import io.netty.channel.ChannelHandlerContext;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.mina.core.session.IoSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +22,7 @@ class XCore {
 
 	private ArrayBlockingQueue<XQueueMessage> queue;
 
-	private Map<IoSession, Client> clientMap = new ConcurrentHashMap<IoSession, Client>();
+	private Map<ChannelHandlerContext, Client> clientMap = new ConcurrentHashMap<ChannelHandlerContext, Client>();
 	// 由于连接数不会很多，就不用太复杂的数据结构了，每次遍历所有连接。
 	private Map<String, Client> topicMap = new ConcurrentHashMap<String, Client>();
 
@@ -32,10 +33,10 @@ class XCore {
 		public String topic;
 		public String systemId;
 		public String clientId;
-		public IoSession session;
+		public ChannelHandlerContext session;
 
 		public Client(String topic, String clientId, String systemId,
-				IoSession session) {
+				ChannelHandlerContext session) {
 			super();
 			this.topic = topic;
 			this.clientId = clientId;
@@ -103,7 +104,8 @@ class XCore {
 		}
 	}
 
-	public void addSession(IoSession session, XQueueChallengeResponse m) {
+	public void addSession(ChannelHandlerContext session,
+			XQueueChallengeResponse m) {
 		Client client = new Client(m.getSubscribeTopic(), m.getClientId(),
 				m.getSystemId(), session);
 		clientMap.put(session, client);
@@ -115,7 +117,7 @@ class XCore {
 		}
 	}
 
-	public void removeSession(IoSession session) {
+	public void removeSession(ChannelHandlerContext session) {
 		Client client = clientMap.remove(session);
 		if (client == null)
 			return;
@@ -146,8 +148,8 @@ class XCore {
 			try {
 				if (key.startsWith(p)) {
 					Client c = topicMap.get(key);
-					if (c != null) {
-						c.session.write(msg);
+					if (c != null && c.session.channel().isWritable()) {
+						c.session.writeAndFlush(msg);
 					}
 				}
 			} catch (Exception e) {

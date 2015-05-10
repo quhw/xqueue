@@ -120,15 +120,16 @@ public class XQueue {
 		EventLoopGroup bossGroup = new NioEventLoopGroup();
 		EventLoopGroup workerGroup = new NioEventLoopGroup();
 		ServerBootstrap b = new ServerBootstrap();
-		b.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
-				.childHandler(new ChannelInitializer<SocketChannel>() { 
-							@Override
-							public void initChannel(SocketChannel ch)
-									throws Exception {
-								ch.pipeline().addLast();
-							}
-						}).option(ChannelOption.SO_BACKLOG, 128) 
-				.childOption(ChannelOption.SO_KEEPALIVE, true); 
+		b.group(bossGroup, workerGroup)
+				.channel(NioServerSocketChannel.class)
+				.childHandler(new ChannelInitializer<SocketChannel>() {
+					@Override
+					public void initChannel(SocketChannel ch) throws Exception {
+						ch.pipeline().addLast(new XMessageEncoder(),
+								new XMessageDecoder(), new ClientHandler(core));
+					}
+				}).option(ChannelOption.SO_BACKLOG, 128)
+				.childOption(ChannelOption.SO_KEEPALIVE, true);
 
 		// Bind and start to accept incoming connections.
 		b.bind(port).sync();

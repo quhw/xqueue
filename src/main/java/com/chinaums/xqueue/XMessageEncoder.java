@@ -1,22 +1,17 @@
 package com.chinaums.xqueue;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.MessageToByteEncoder;
+
 import java.text.SimpleDateFormat;
 
-import org.apache.mina.core.buffer.IoBuffer;
-import org.apache.mina.core.session.IoSession;
-import org.apache.mina.filter.codec.ProtocolEncoder;
-import org.apache.mina.filter.codec.ProtocolEncoderOutput;
-
-/**
- * 
- * @author Huanwen Qu
- * 
- */
-class XMessageEncoder implements ProtocolEncoder {
+class XMessageEncoder extends MessageToByteEncoder<XMessage> {
 
 	@Override
-	public void encode(IoSession session, Object message,
-			ProtocolEncoderOutput out) throws Exception {
+	protected void encode(ChannelHandlerContext ctx, XMessage message,
+			ByteBuf out) throws Exception {
+
 		byte type;
 		byte[] content;
 		StringBuffer buf = new StringBuffer();
@@ -64,17 +59,10 @@ class XMessageEncoder implements ProtocolEncoder {
 
 		byte[] head = buf.toString().getBytes("UTF-8");
 
-		IoBuffer buffer = IoBuffer.allocate(4 + 1 + head.length
-				+ content.length);
-		buffer.putInt(1 + head.length + content.length);
-		buffer.put(type);
-		buffer.put(head);
-		buffer.put(content);
-		buffer.flip();
-		out.write(buffer);
+		out.writeInt(1 + head.length + content.length);
+		out.writeByte(type);
+		out.writeBytes(head);
+		out.writeBytes(content);
 	}
 
-	@Override
-	public void dispose(IoSession session) throws Exception {
-	}
 }
