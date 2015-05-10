@@ -6,7 +6,11 @@ import io.netty.handler.codec.MessageToByteEncoder;
 
 import java.text.SimpleDateFormat;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 class XMessageEncoder extends MessageToByteEncoder<XMessage> {
+	private static Logger log = LoggerFactory.getLogger(XMessageEncoder.class);
 
 	@Override
 	protected void encode(ChannelHandlerContext ctx, XMessage message,

@@ -1,7 +1,6 @@
 package com.chinaums.xqueue;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
@@ -26,7 +25,7 @@ public class XQueue {
 
 	private int port;
 	private int queueSize = 2048;
-	private int dispatcherThreads = 16;
+	private int dispatcherThreads = 1;
 	private Map<String, String> authKeys = new HashMap<String, String>();
 
 	private XCore core;
@@ -94,7 +93,7 @@ public class XQueue {
 	}
 
 	/**
-	 * 消息分发线程数，默认16。
+	 * 消息分发线程数，默认1。
 	 * 
 	 * @param dispatcherThreads
 	 */

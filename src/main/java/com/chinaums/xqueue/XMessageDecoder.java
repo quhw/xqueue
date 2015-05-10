@@ -8,10 +8,15 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * 处理XQueueAuthResponse, XQueueMessageAck消息
  */
 class XMessageDecoder extends ByteToMessageDecoder {
+	private static Logger log = LoggerFactory.getLogger(XMessageDecoder.class);
+
 	@Override
 	protected void decode(ChannelHandlerContext ctx, ByteBuf in,
 			List<Object> out) throws Exception {
