@@ -76,6 +76,7 @@ class XCore {
 
 		for (int i = 0; i < this.dispatcherThreads; i++) {
 			Dispatcher d = new Dispatcher();
+			d.setName("XQueue Dispatcher " + i);
 			dispatchers.add(d);
 			d.start();
 		}

@@ -184,6 +184,7 @@ public class XQueueClient {
 		workerPool = new ArrayList<XQueueClient.WorkerThread>(workerPoolSize);
 		for (int i = 0; i < workerPoolSize; i++) {
 			WorkerThread wt = new WorkerThread();
+			wt.setName("XQueueClient Worker " + i);
 			workerPool.add(wt);
 			wt.start();
 		}
@@ -332,8 +333,8 @@ public class XQueueClient {
 			log.info("连接服务端：" + addr);
 			try {
 				sock = new Socket();
+				sock.setKeepAlive(true);
 				sock.connect(addr, 30000);
-//				sock.setSoTimeout(10000); // 10秒读取超时，发送心跳。
 				log.info("成功连接服务端");
 				return;
 			} catch (Exception e) {
