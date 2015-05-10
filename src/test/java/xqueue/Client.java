@@ -11,7 +11,7 @@ public class Client {
 	private static Logger log = LoggerFactory.getLogger(Client.class);
 
 	public static void main(String[] args) {
-		if (args.length != 2) {
+		if (args.length != 3) {
 			System.out.println("Client <host:port> <clientId> <topic>");
 			System.exit(-1);
 		}
