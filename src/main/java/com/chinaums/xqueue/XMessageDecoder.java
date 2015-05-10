@@ -21,13 +21,13 @@ class XMessageDecoder extends ByteToMessageDecoder {
 
 		in.markReaderIndex();
 		int length = in.readInt();
+		if (length > 10 * 1024) {
+			throw new Exception("报文过长");
+		}
+
 		if (in.readableBytes() < length) {
 			in.resetReaderIndex();
 			return;
-		}
-
-		if (length > 10 * 1024) {
-			throw new Exception("报文过长");
 		}
 
 		byte[] data = new byte[length];
