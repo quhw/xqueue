@@ -43,10 +43,24 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
 		} else if (message instanceof XQueueChallengeResponse) {
 			log.info("收到认证应答：" + ctx.channel().remoteAddress());
 			XQueueChallengeResponse m = (XQueueChallengeResponse) message;
-			if (core.authenticate(challenge, m)) {
-				ctx.writeAndFlush(new XQueueChallengeFinish("OK"));
-				core.addSession(ctx, m);
+			if (core.authenticate(m.getSystemId(), challenge, m.getSignature())) {
 				log.info("认证通过：{}", ctx.channel().remoteAddress());
+				if (core.authorize(m.getSystemId(), m.getSubscribeTopic())) {
+					log.info("授权通过：{}", ctx.channel().remoteAddress());
+					ctx.writeAndFlush(new XQueueChallengeFinish("OK"));
+					core.addSession(ctx, m);
+				} else {
+					ctx.writeAndFlush(
+							new XQueueChallengeFinish("Authorization fail."))
+							.addListener(new ChannelFutureListener() {
+								@Override
+								public void operationComplete(
+										ChannelFuture future) throws Exception {
+									future.channel().close();
+								}
+							});
+					log.warn("授权失败：{}", ctx.channel().remoteAddress());
+				}
 			} else {
 				ctx.writeAndFlush(
 						new XQueueChallengeFinish("Authentication fail."))

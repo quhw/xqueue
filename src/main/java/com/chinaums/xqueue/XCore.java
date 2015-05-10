@@ -5,6 +5,7 @@ import io.netty.channel.ChannelHandlerContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -19,6 +20,7 @@ class XCore {
 	private int queueSize;
 	private int dispatcherThreads;
 	private Map<String, String> authKeys;
+	private Map<String, Set<String>> authTopics;
 
 	private ArrayBlockingQueue<XQueueMessage> queue;
 
@@ -59,10 +61,11 @@ class XCore {
 	}
 
 	public XCore(int queueSize, int dispatcherThreads,
-			Map<String, String> authKeys) {
+			Map<String, String> authKeys, Map<String, Set<String>> authTopics) {
 		this.queueSize = queueSize;
 		this.dispatcherThreads = dispatcherThreads;
 		this.authKeys = authKeys;
+		this.authTopics = authTopics;
 
 		queue = new ArrayBlockingQueue<XQueueMessage>(this.queueSize);
 		dispatchers = new ArrayList<XCore.Dispatcher>(dispatcherThreads);
@@ -92,17 +95,25 @@ class XCore {
 		}
 	}
 
-	public boolean authenticate(String challenge, XQueueChallengeResponse msg) {
-		String key = authKeys.get(msg.getSystemId());
+	public boolean authenticate(String systemId, String challenge,
+			byte[] signature) {
+		String key = authKeys.get(systemId);
 		if (key == null)
 			return false;
 		try {
-			return RSAUtil.doCheck(challenge.getBytes(), msg.getSignature(),
-					key);
+			return RSAUtil.doCheck(challenge.getBytes(), signature, key);
 		} catch (Exception e) {
 			log.error("验签错误", e);
 			return false;
 		}
+	}
+
+	public boolean authorize(String systemId, String topic) {
+		Set<String> topics = authTopics.get(systemId);
+		if (topics != null) {
+			return topics.contains(topic);
+		}
+		return false;
 	}
 
 	public void addSession(ChannelHandlerContext session,

@@ -9,7 +9,9 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +29,7 @@ public class XQueue {
 	private int queueSize = 2048;
 	private int dispatcherThreads = 1;
 	private Map<String, String> authKeys = new HashMap<String, String>();
+	private Map<String, Set<String>> authTopics = new HashMap<String, Set<String>>();
 
 	private XCore core;
 
@@ -75,6 +78,36 @@ public class XQueue {
 		this.authKeys = authKeys;
 	}
 
+	public Map<String, Set<String>> getAuthTopics() {
+		return authTopics;
+	}
+
+	/**
+	 * 设置客户端topic授权，systemId:topic1,topic2,topic3,...
+	 * 
+	 * @param authTopics
+	 */
+	public void setAuthTopics(Map<String, Set<String>> authTopics) {
+		this.authTopics = authTopics;
+	}
+
+	/**
+	 * 设置客户端topic授权，systemId:topic1,topic2,topic3,...
+	 * 
+	 * @param authTopics
+	 */
+	public void setAuthTopicsString(Map<String, String> authTopicsString) {
+		this.authTopics = new HashMap<String, Set<String>>();
+		for (String key : authTopicsString.keySet()) {
+			String value = authTopicsString.get(key);
+			String[] topics = value.split(",");
+			HashSet<String> topicSet = new HashSet<String>(topics.length);
+			for (String t : topics)
+				topicSet.add(t);
+			this.authTopics.put(key, topicSet);
+		}
+	}
+
 	public int getQueueSize() {
 		return queueSize;
 	}
@@ -113,7 +146,7 @@ public class XQueue {
 		stop = false;
 
 		log.info("开始启动XQueue");
-		core = new XCore(queueSize, dispatcherThreads, authKeys);
+		core = new XCore(queueSize, dispatcherThreads, authKeys, authTopics);
 		core.start();
 
 		EventLoopGroup bossGroup = new NioEventLoopGroup();
