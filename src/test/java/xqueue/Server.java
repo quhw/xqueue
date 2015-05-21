@@ -24,6 +24,7 @@ public class Server {
 		while (true) {
 			for (int i = 0; i < 10; i++)
 				xq.send("topic" + i, ("hello world, " + i).getBytes());
+			Thread.sleep(10);
 		}
 	}
 

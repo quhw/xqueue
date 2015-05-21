@@ -2,18 +2,23 @@ package com.chinaums.xqueue;
 
 import io.netty.channel.ChannelHandlerContext;
 
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class XCore {
-	private static final String SEP = "|*^*|";
+	private static final String SEP = "&_%";
 
 	private static Logger log = LoggerFactory.getLogger(XCore.class);
 
@@ -30,6 +35,11 @@ class XCore {
 
 	private volatile boolean stop = true;
 	private List<Dispatcher> dispatchers;
+
+	private XQueueInfo mbean = new XQueueInfo();
+
+	private long allMsgCount = 0, discardedMsgCount = 0,
+			unprocessedMsgCount = 0;
 
 	private class Client {
 		public String topic;
@@ -76,6 +86,14 @@ class XCore {
 			return;
 
 		stop = false;
+
+		try {
+			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();// 可在jconsole中使用
+			// 将MBean注册到MBeanServer中
+			mbs.registerMBean(mbean, new ObjectName("XQueueMBean:name=info"));
+		} catch (Exception e) {
+			log.error("", e);
+		}
 
 		for (int i = 0; i < this.dispatcherThreads; i++) {
 			Dispatcher d = new Dispatcher();
@@ -150,23 +168,113 @@ class XCore {
 	}
 
 	public boolean send(XQueueMessage msg) throws Exception {
-		return queue.offer(msg);
+
+		boolean result = queue.offer(msg);
+		allMsgCount++;
+		if (!result)
+			discardedMsgCount++;
+		return result;
 	}
 
 	private void dispatchMessage(XQueueMessage msg) {
 		String topic = msg.getTopic();
 		String p = topic + SEP;
+		boolean processed = false;
 		for (String key : topicMap.keySet()) {
 			try {
 				if (key.startsWith(p)) {
 					Client c = topicMap.get(key);
 					if (c != null && c.session.channel().isWritable()) {
 						c.session.writeAndFlush(msg);
+						processed = true;
 					}
 				}
 			} catch (Exception e) {
 				log.warn("发送消息错误: " + e.getMessage());
 			}
 		}
+		if (!processed)
+			unprocessedMsgCount++;
+	}
+
+	public interface XQueueInfoMXBean {
+		/**
+		 * 所有发送消息
+		 * 
+		 * @return
+		 */
+		public long getAllMessageCount();
+
+		/**
+		 * 丢弃消息，内部发送队列满的情况下会丢弃
+		 * 
+		 * @return
+		 */
+		public long getDiscardedMessageCount();
+
+		/**
+		 * 没有接收方的消息总数
+		 * 
+		 * @return
+		 */
+		public long getUnprocessedMessageCount();
+
+		public String[] getSubscribeTopics();
+
+		public String[] getClients();
+
+		public String[] getActiveClients();
+
+	}
+
+	public class XQueueInfo implements XQueueInfoMXBean {
+
+		@Override
+		public long getAllMessageCount() {
+			return allMsgCount;
+		}
+
+		@Override
+		public String[] getSubscribeTopics() {
+			Set<String> topics = new HashSet<String>();
+			for (String key : topicMap.keySet()) {
+				String[] s = key.split(SEP);
+				topics.add(s[0]);
+			}
+			return topics.toArray(new String[0]);
+		}
+
+		@Override
+		public String[] getClients() {
+			Set<String> clients = new HashSet<String>();
+			for (ChannelHandlerContext key : clientMap.keySet()) {
+				Client c = clientMap.get(key);
+				String s = c.systemId + "[" + c.clientId + "][" + c.topic
+						+ "][" + key.channel().remoteAddress() + "]";
+				clients.add(s);
+			}
+			return clients.toArray(new String[0]);
+		}
+
+		@Override
+		public String[] getActiveClients() {
+			Set<String> clients = new HashSet<String>();
+			for (String key : topicMap.keySet()) {
+				String[] s = key.split(SEP);
+				clients.add(s[2] + "[" + s[1] + "][" + s[0] + "]");
+			}
+			return clients.toArray(new String[0]);
+		}
+
+		@Override
+		public long getDiscardedMessageCount() {
+			return discardedMsgCount;
+		}
+
+		@Override
+		public long getUnprocessedMessageCount() {
+			return unprocessedMsgCount;
+		}
+
 	}
 }
